@@ -1,7 +1,9 @@
 # SIT210 - Embedded Systems Development
 
 **Student Name:** Manit Khera
+
 **Student ID:** s224520987
+
 **Institution:** Deakin University
 
 ## About This Repository
