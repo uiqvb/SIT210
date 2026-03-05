@@ -7,6 +7,11 @@ When the user activates a physical slide switch, the system instantly turns on b
 
 The system was developed using an Arduino Nano 33 IoT, LEDs, and a physical switch. The final code uses a non-blocking `millis()` timer and software debouncing to ensure the hardware responds instantly to user input without freezing or glitching.
 
+## Code Diagram / Flowchart
+*(Below is the logic flow for the non-blocking timer and switch debouncing)*
+
+<img width="527" height="363" alt="image" src="https://github.com/user-attachments/assets/a443cfed-7c42-408c-b655-d42691ff6fc7" />
+
 ## Code Overview (Modular Functions)
 The code utilizes a modular programming approach, breaking the system into manageable chunks. Here is a general overview of what each part of the code is doing:
 
