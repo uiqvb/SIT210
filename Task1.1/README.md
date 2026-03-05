@@ -7,8 +7,8 @@ When the user activates a physical slide switch, the system instantly turns on b
 
 The system was developed using an Arduino Nano 33 IoT, LEDs, and a physical switch. The final code uses a non-blocking `millis()` timer and software debouncing to ensure the hardware responds instantly to user input without freezing or glitching.
 
-## Code Diagram / Flowchart
-*(Below is the logic flow for the non-blocking timer and switch debouncing)*
+## Code TinkerCad Diagram 
+*(Below is the visualization of the wiring of the hardware)*
 
 <img width="527" height="363" alt="image" src="https://github.com/user-attachments/assets/a443cfed-7c42-408c-b655-d42691ff6fc7" />
 
@@ -21,3 +21,4 @@ The code utilizes a modular programming approach, breaking the system into manag
 * **`startLights()`**: A dedicated helper function that triggers both the porch and hallway LEDs to turn ON.
 * **`turnOffPorchLight()` / `turnOffHallLight()`**: Helper functions that turn off their respective LEDs.
 * **`turnOffEverything()`**: An emergency override function that instantly shuts off all LEDs if the switch is deactivated early.
+
