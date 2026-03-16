@@ -11,11 +11,11 @@
 #define LIGHTPIN A0
 
 // ---------------- Wi-Fi and ThingSpeak details ----------------
-// Replace these with your own Wi-Fi details
+// Replace these my own Wi-Fi details
 const char WIFI_SSID[] = "YOUR_WIFI_NAME";
 const char WIFI_PASS[] = "YOUR_WIFI_PASSWORD";
 
-// Replace these with your own ThingSpeak channel details
+// Replace these my own ThingSpeak channel details
 unsigned long channelID = 3301095;
 const char WRITE_API_KEY[] = "YOUR_WRITE_API_KEY";
 
