@@ -13,4 +13,5 @@ The primary focus of these projects is to design and build embedded systems and 
 
 ## Repository Structure
 * **Task1.1:** Task 1.1P - Switching ON Lights: Modular Programming Approach
-* *(Future tasks will be added here as the trimester progresses)*
+* **Task2.1:** Task 2.1P - Sending Temperature and Light Levels to the Web
+* **Task3.1:** Task 3.1P - Create Trigger/Notification based on Sensor Data
