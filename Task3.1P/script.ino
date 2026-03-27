@@ -1,25 +1,34 @@
+//libraries
 #include <Wire.h>
 #include <BH1750.h>
 #include <WiFiNINA.h>
 #include <PubSubClient.h>
 
+//Configurations
+
 // wifi credentials - not to be pushed to github
-char ssid[] = "S23 FE";
-char pass[] = "manit1234";  // change this value before uplaoding to github
+char ssid[] = "";
+char pass[] = "";  // change this value before uplaoding to github
 
 // mqtt server, port and topic, taken from mqtt in node
-const char* mqttServer = "broker.hivemq.com";
-const int mqttPort = 1883;
-const char* mqttTopic = "terrarium/S23FE/lightStatus";
+const char* mqttServer   = "";
+const int   mqttPort     = ;
+const char* mqttUser     = "";
+const char* mqttPassword = "";
+const char* mqttTopic    = "";
 
+
+//Objects 
 BH1750 lightMeter;
-WiFiClient wifiClient;
+WiFiSSLClient wifiClient;
 PubSubClient client(wifiClient);
 
 // threshholds based on light when I shine a torch.
 const float ON_THRESHOLD  = 1200.0;   
 const float OFF_THRESHOLD = 800.0;    
 
+
+//state variables
 bool sunlightState = false;
 bool prevPublished = false; 
 
@@ -76,7 +85,7 @@ void loop() {
       String clientId = "Nano33IoT-";
       clientId += String(random(1000, 9999));
 
-      if (client.connect(clientId.c_str())) {
+      if (client.connect(clientId.c_str(), mqttUser, mqttPassword)) {
         Serial.println("connected to broker!");
       } else {
         Serial.print("failed, rc=");
