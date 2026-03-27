@@ -1,8 +1,8 @@
-//libraries
-#include <Wire.h>
-#include <BH1750.h>
-#include <WiFiNINA.h>
-#include <PubSubClient.h>
+//libaries
+#include <Wire.h> // for i2c communication with the BH1750
+#include <BH1750.h> // for the BH1750 light sensor
+#include <WiFiNINA.h>// for wifi connectivity on the Nano 33 IoT
+#include <PubSubClient.h> // for MQTT communication
 
 //Configurations
 
@@ -41,9 +41,9 @@ const unsigned long READ_INTERVAL = 1000;
 const unsigned long RETRY_INTERVAL = 3000; // try reconnecting every 3s
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(9600); // start serial for debugging
   
-  //   millis loop 
+  //   millis loop waiting for 1.5 seconds
   unsigned long startWait = millis();
   while(millis() - startWait < 1500) {
   }
@@ -51,7 +51,7 @@ void setup() {
   Wire.begin();
 
   // check if sensor is even pluged in
-  if (!lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) {
+  if (!lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE)) { // if light meter. bgin doesnt
     Serial.println("BH1750 missing or broke");
     while (1); // halt the program if the BH1750 is not detected
   }
@@ -66,6 +66,7 @@ void setup() {
 
 void loop() {
   unsigned long now = millis();
+
 
   // non-blocking wifi reconnect
   if (WiFi.status() != WL_CONNECTED) {
@@ -85,10 +86,14 @@ void loop() {
       String clientId = "Nano33IoT-";
       clientId += String(random(1000, 9999));
 
+<<<<<<< Updated upstream
       if (client.connect(clientId.c_str(), mqttUser, mqttPassword)) {
+=======
+      if (client.connect(clientId.c_str(), mqttUser, mqttPassword))//sends unique client id and credentials to mqtt server{
+>>>>>>> Stashed changes
         Serial.println("connected to broker!");
       } else {
-        Serial.print("failed, rc=");
+        Serial.print("failed, rc="); // means return code
         Serial.println(client.state()); 
       }
       lastMqttTry = now;
@@ -96,10 +101,10 @@ void loop() {
     return; // wait till we have mqtt to read the sensor
   }
 
-  client.loop(); // keep mqtt alive
+  client.loop(); // keep mqtt alive if by sending a micro signal to the broker, also allows us to receive messages if we had any subscriptions (we dont in this case)
 
   // non-blocking sensor read
-  if (now - lastRead >= READ_INTERVAL) {
+  if (now - lastRead >= READ_INTERVAL) { //has 1000 ms passed since last read?
     lastRead = now;
 
     float lux = lightMeter.readLightLevel();
@@ -118,12 +123,16 @@ void loop() {
     if (sunlightState != prevPublished) {
       if (sunlightState) {
         client.publish(mqttTopic, "SUNLIGHT_STARTED");
-        Serial.println("Published: SUNLIGHT_STARTED");
+        Serial.println("Published: SUNLIGHT_STARTED"); //published message to mqtt topic, this is what node red will react to
       } else {
-        client.publish(mqttTopic, "SUNLIGHT_STOPPED"); 
+        client.publish(mqttTopic, "SUNLIGHT_STOPPED");  //published message to mqtt topic, this is what node red will react to
         Serial.println("Published: SUNLIGHT_STOPED");
       }
       prevPublished = sunlightState;
     }
+<<<<<<< Updated upstream
   }
 }
+=======
+  }
+>>>>>>> Stashed changes
