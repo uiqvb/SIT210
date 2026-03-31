@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Linda's Home Lights</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 750px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f7f7f7;
+    }
+    h1 {
+      text-align: center;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 18px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    button {
+      padding: 10px 14px;
+      margin-right: 8px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    input {
+      padding: 10px;
+      width: 120px;
+      margin-right: 8px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    #statusBox {
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Linda's Home Lights</h1>
+  <p style="text-align:center;">Control the living room, bathroom, and closet lights over local Wi-Fi.</p>
+
+  <div class="card">
+    <h2>Living Room</h2>
+    <button onclick="toggleRoom('livingroom')">Toggle</button>
+    <input type="number" id="livingroomTimer" min="1" placeholder="Seconds">
+    <button onclick="setTimer('livingroom')">Start Timer</button>
+  </div>
+
+  <div class="card">
+    <h2>Bathroom</h2>
+    <button onclick="toggleRoom('bathroom')">Toggle</button>
+    <input type="number" id="bathroomTimer" min="1" placeholder="Seconds">
+    <button onclick="setTimer('bathroom')">Start Timer</button>
+  </div>
+
+  <div class="card">
+    <h2>Closet</h2>
+    <button onclick="toggleRoom('closet')">Toggle</button>
+    <input type="number" id="closetTimer" min="1" placeholder="Seconds">
+    <button onclick="setTimer('closet')">Start Timer</button>
+  </div>
+
+  <div id="statusBox">
+    <h3>Status</h3>
+    <p id="statusText">Waiting...</p>
+  </div>
+
+  <script>
+    const ARDUINO_IP = "192.168.63.1"; // replace if it changes
+
+    async function toggleRoom(room) {
+      try {
+        const response = await fetch(`http://${ARDUINO_IP}/toggle?room=${room}`);
+        const data = await response.json();
+        document.getElementById("statusText").innerText =
+          `${room} toggled successfully: ${JSON.stringify(data)}`;
+        refreshStatus();
+      } catch (error) {
+        document.getElementById("statusText").innerText =
+          `Error toggling ${room}: ${error.message}`;
+      }
+    }
+
+    async function setTimer(room) {
+      const seconds = document.getElementById(room + "Timer").value;
+
+      if (!seconds || Number(seconds) <= 0) {
+        alert("Please enter a valid time in seconds.");
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://${ARDUINO_IP}/timer?room=${room}&seconds=${seconds}`);
+        const data = await response.json();
+        document.getElementById("statusText").innerText =
+          `Timer started for ${room}: ${JSON.stringify(data)}`;
+        refreshStatus();
+      } catch (error) {
+        document.getElementById("statusText").innerText =
+          `Error starting timer for ${room}: ${error.message}`;
+      }
+    }
+
+    async function refreshStatus() {
+      try {
+        const response = await fetch(`http://${ARDUINO_IP}/status`);
+        const data = await response.json();
+        document.getElementById("statusText").innerText =
+          `Living Room: ${data.livingroom}, Bathroom: ${data.bathroom}, Closet: ${data.closet}`;
+      } catch (error) {
+        document.getElementById("statusText").innerText =
+          `Error reading status: ${error.message}`;
+      }
+    }
+
+    refreshStatus();
+  </script>
+</body>
+</html>
