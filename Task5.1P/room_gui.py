@@ -1,77 +1,129 @@
 import tkinter as tk
-from gpiozero import LED
+from tkinter import ttk, messagebox
+import RPi.GPIO as GPIO
 
-living_room = LED(17)
-bathroom = LED(27)
-closet = LED(22)
+# GPIO setup
+LED_PINS = {
+    "living room": 17,   # physical pin 11
+    "bathroom": 27,      # physical pin 13
+    "closet": 22         # physical pin 15
+}
+
+GPIO.setwarnings(False)
+GPIO.setmode(GPIO.BCM)
+
+for pin in LED_PINS.values():
+    GPIO.setup(pin, GPIO.OUT)
+    GPIO.output(pin, GPIO.LOW)
 
 def all_off():
-    living_room.off()
-    bathroom.off()
-    closet.off()
+    for pin in LED_PINS.values():
+        GPIO.output(pin, GPIO.LOW)
 
-def select_room():
-    choice = room_var.get()
+def set_room(room_name):
+    room = room_name.strip().lower()
+
+    aliases = {
+        "living": "living room",
+        "living room": "living room",
+        "bath": "bathroom",
+        "bathroom": "bathroom",
+        "closet": "closet"
+    }
+
+    if room not in aliases:
+        status_label.config(text="Invalid room. Use: living room, bathroom, or closet.")
+        return
+
+    selected = aliases[room]
+
+    for name, pin in LED_PINS.items():
+        GPIO.output(pin, GPIO.HIGH if name == selected else GPIO.LOW)
+
+    status_label.config(text=f"{selected.title()} LED is ON")
+    selected_room.set(selected)
+
+def on_radio_change():
+    set_room(selected_room.get())
+
+def submit_text():
+    set_room(room_entry.get())
+
+def switch_mode():
+    mode = input_mode.get()
+
+    radio_frame.pack_forget()
+    text_frame.pack_forget()
+
+    if mode == "radio":
+        radio_frame.pack(pady=10)
+    else:
+        text_frame.pack(pady=10)
+
+def close_app():
     all_off()
+    GPIO.cleanup()
+    root.destroy()
 
-    if choice == 1:
-        living_room.on()
-    elif choice == 2:
-        bathroom.on()
-    elif choice == 3:
-        closet.on()
+# GUI setup
+root = tk.Tk()
+root.title("Room Light Controller")
+root.geometry("420x320")
+root.resizable(False, False)
 
-def all_off_button():
-    room_var.set(0)
-    all_off()
-
-def exit_app():
-    all_off()
-    window.destroy()
-
-window = tk.Tk()
-window.title("Room Lights")
-window.geometry("300x260")
-
-room_var = tk.IntVar(value=0)
-
-title_label = tk.Label(window, text="Choose one room light", font=("Arial", 14))
+title_label = ttk.Label(root, text="Room Light Controller", font=("Arial", 16, "bold"))
 title_label.pack(pady=10)
 
-rb1 = tk.Radiobutton(
-    window,
-    text="Living Room",
-    variable=room_var,
-    value=1,
-    command=select_room
-)
-rb1.pack(anchor="w", padx=30, pady=5)
+input_mode = tk.StringVar(value="radio")
+selected_room = tk.StringVar(value="living room")
 
-rb2 = tk.Radiobutton(
-    window,
-    text="Bathroom",
-    variable=room_var,
-    value=2,
-    command=select_room
-)
-rb2.pack(anchor="w", padx=30, pady=5)
+mode_frame = ttk.LabelFrame(root, text="Choose Input Method")
+mode_frame.pack(padx=15, pady=10, fill="x")
 
-rb3 = tk.Radiobutton(
-    window,
-    text="Closet",
-    variable=room_var,
-    value=3,
-    command=select_room
-)
-rb3.pack(anchor="w", padx=30, pady=5)
+ttk.Radiobutton(
+    mode_frame, text="Radio Buttons", variable=input_mode,
+    value="radio", command=switch_mode
+).pack(anchor="w", padx=10, pady=5)
 
-off_button = tk.Button(window, text="All Off", command=all_off_button, width=10)
-off_button.pack(pady=8)
+ttk.Radiobutton(
+    mode_frame, text="Text Input", variable=input_mode,
+    value="text", command=switch_mode
+).pack(anchor="w", padx=10, pady=5)
 
-exit_button = tk.Button(window, text="Exit", command=exit_app, width=10)
-exit_button.pack(pady=8)
+radio_frame = ttk.LabelFrame(root, text="Radio Button Control")
+ttk.Radiobutton(
+    radio_frame, text="Living Room", variable=selected_room,
+    value="living room", command=on_radio_change
+).pack(anchor="w", padx=10, pady=5)
 
-window.protocol("WM_DELETE_WINDOW", exit_app)
+ttk.Radiobutton(
+    radio_frame, text="Bathroom", variable=selected_room,
+    value="bathroom", command=on_radio_change
+).pack(anchor="w", padx=10, pady=5)
 
-all_off()
-window.mainloop()
+ttk.Radiobutton(
+    radio_frame, text="Closet", variable=selected_room,
+    value="closet", command=on_radio_change
+).pack(anchor="w", padx=10, pady=5)
+
+text_frame = ttk.LabelFrame(root, text="Text Input Control")
+room_entry = ttk.Entry(text_frame, width=28)
+room_entry.pack(padx=10, pady=10)
+room_entry.insert(0, "living room")
+
+ttk.Button(text_frame, text="Turn On Selected Room", command=submit_text).pack(pady=5)
+
+status_label = ttk.Label(root, text="Select a room to turn on its LED.")
+status_label.pack(pady=10)
+
+button_frame = ttk.Frame(root)
+button_frame.pack(pady=10)
+
+ttk.Button(button_frame, text="All Off", command=all_off).pack(side="left", padx=8)
+ttk.Button(button_frame, text="Exit", command=close_app).pack(side="left", padx=8)
+
+switch_mode()
+set_room("living room")
+
+root.protocol("WM_DELETE_WINDOW", close_app)
+root.mainloop()
