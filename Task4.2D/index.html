@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Linda's Home Lights</title>
+  <title>Linda's Home Lights - MQTT</title>
+
+  <!-- MQTT over WebSocket library -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -12,9 +16,11 @@
       padding: 20px;
       background: #f7f7f7;
     }
+
     h1 {
       text-align: center;
     }
+
     .card {
       background: white;
       border-radius: 12px;
@@ -22,6 +28,7 @@
       margin-bottom: 18px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
+
     button {
       padding: 10px 14px;
       margin-right: 8px;
@@ -29,6 +36,7 @@
       border-radius: 8px;
       cursor: pointer;
     }
+
     input {
       padding: 10px;
       width: 120px;
@@ -36,6 +44,7 @@
       border-radius: 8px;
       border: 1px solid #ccc;
     }
+
     #statusBox {
       background: white;
       padding: 16px;
@@ -43,11 +52,24 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.08);
       margin-top: 20px;
     }
+
+    .connected {
+      color: green;
+      font-weight: bold;
+    }
+
+    .disconnected {
+      color: red;
+      font-weight: bold;
+    }
   </style>
 </head>
+
 <body>
   <h1>Linda's Home Lights</h1>
-  <p style="text-align:center;">Control the living room, bathroom, and closet lights over local Wi-Fi.</p>
+  <p style="text-align:center;">
+    Control the living room, bathroom, and closet lights using a cloud MQTT broker.
+  </p>
 
   <div class="card">
     <h2>Living Room</h2>
@@ -72,26 +94,75 @@
 
   <div id="statusBox">
     <h3>Status</h3>
-    <p id="statusText">Waiting...</p>
+    <p id="connectionText" class="disconnected">Connecting to MQTT broker...</p>
+    <p id="statusText">Waiting for Arduino status...</p>
   </div>
 
   <script>
-    const ARDUINO_IP = "192.168.63.1"; // replace if it changes
+    // MQTT broker over WebSocket
+    const brokerUrl = "wss://broker.emqx.io:8084/mqtt";
 
-    async function toggleRoom(room) {
-      try {
-        const response = await fetch(`http://${ARDUINO_IP}/toggle?room=${room}`);
-        const data = await response.json();
-        document.getElementById("statusText").innerText =
-          `${room} toggled successfully: ${JSON.stringify(data)}`;
-        refreshStatus();
-      } catch (error) {
-        document.getElementById("statusText").innerText =
-          `Error toggling ${room}: ${error.message}`;
+    // Use the same topics in the Arduino code
+    const commandTopic = "sit210/s224520987/lindaLights/command";
+    const statusTopic = "sit210/s224520987/lindaLights/status";
+
+    const client = mqtt.connect(brokerUrl, {
+      clientId: "webClient_" + Math.random().toString(16).substring(2, 10),
+      clean: true,
+      reconnectPeriod: 2000
+    });
+
+    client.on("connect", function () {
+      document.getElementById("connectionText").innerText =
+        "Connected to MQTT broker";
+
+      document.getElementById("connectionText").className = "connected";
+
+      client.subscribe(statusTopic);
+    });
+
+    client.on("reconnect", function () {
+      document.getElementById("connectionText").innerText =
+        "Reconnecting to MQTT broker...";
+
+      document.getElementById("connectionText").className = "disconnected";
+    });
+
+    client.on("error", function (error) {
+      document.getElementById("connectionText").innerText =
+        "MQTT error: " + error.message;
+
+      document.getElementById("connectionText").className = "disconnected";
+    });
+
+    client.on("message", function (topic, message) {
+      if (topic === statusTopic) {
+        try {
+          const data = JSON.parse(message.toString());
+
+          document.getElementById("statusText").innerText =
+            `Living Room: ${data.livingroom}, Bathroom: ${data.bathroom}, Closet: ${data.closet}`;
+        } catch (error) {
+          document.getElementById("statusText").innerText =
+            "Received status: " + message.toString();
+        }
       }
+    });
+
+    function toggleRoom(room) {
+      const payload = {
+        room: room,
+        action: "toggle",
+        seconds: 0
+      };
+
+      client.publish(commandTopic, JSON.stringify(payload));
+
+      document.getElementById("statusText").innerText =
+        `Sent toggle command for ${room}`;
     }
 
-    async function setTimer(room) {
+    function setTimer(room) {
       const seconds = document.getElementById(room + "Timer").value;
 
       if (!seconds || Number(seconds) <= 0) {
@@ -99,31 +170,17 @@
         return;
       }
 
-      try {
-        const response = await fetch(`http://${ARDUINO_IP}/timer?room=${room}&seconds=${seconds}`);
-        const data = await response.json();
-        document.getElementById("statusText").innerText =
-          `Timer started for ${room}: ${JSON.stringify(data)}`;
-        refreshStatus();
-      } catch (error) {
-        document.getElementById("statusText").innerText =
-          `Error starting timer for ${room}: ${error.message}`;
-      }
-    }
+      const payload = {
+        room: room,
+        action: "timer",
+        seconds: Number(seconds)
+      };
 
-    async function refreshStatus() {
-      try {
-        const response = await fetch(`http://${ARDUINO_IP}/status`);
-        const data = await response.json();
-        document.getElementById("statusText").innerText =
-          `Living Room: ${data.livingroom}, Bathroom: ${data.bathroom}, Closet: ${data.closet}`;
-      } catch (error) {
-        document.getElementById("statusText").innerText =
-          `Error reading status: ${error.message}`;
-      }
-    }
+      client.publish(commandTopic, JSON.stringify(payload));
 
-    refreshStatus();
+      document.getElementById("statusText").innerText =
+        `Sent timer command for ${room}: ${seconds} seconds`;
+    }
   </script>
 </body>
 </html>

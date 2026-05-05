@@ -1,16 +1,23 @@
-#include <spi_flash.h>
 #include <WiFiNINA.h>
+#include <ArduinoMqttClient.h>
 
 char ssid[] = "";
 char pass[] = "";
 
-WiFiServer server(80);
+WiFiClient wifiClient;
+MqttClient mqttClient(wifiClient);
+
+const char broker[] = "broker.emqx.io";
+const int mqttPort = 1883;
+
+const char commandTopic[] = "sit210/s224520987/lindaLights/command";
+const char statusTopic[]  = "sit210/s224520987/lindaLights/status";
 
 const int LED_LIVING = 3;
 const int LED_BATH = 5;
 const int LED_CLOSET = 8;
 
-bool livingroom = false; //leds set to OFF initially
+bool livingroom = false;
 bool bathroom = false;
 bool closet = false;
 
@@ -31,42 +38,17 @@ void setup() {
   digitalWrite(LED_CLOSET, LOW);
 
   connectToWiFi();
-  server.begin();
+  connectToMQTT();
 
-  Serial.println("Server started");
-  Serial.print("Arduino IP address: ");
-  Serial.println(WiFi.localIP());
+  Serial.println("MQTT remote light control system ready");
 }
 
 void loop() {
+  checkConnections();
+
+  mqttClient.poll();
+
   checkTimers();
-  WiFiClient client = server.available();
-
-  if (client) {
-    String request = "";
-    boolean currentLineIsBlank = true;
-
-    while (client.connected()) {
-      if (client.available()) {
-        char c = client.read();
-        request += c;
-
-        if (c == '\n' && currentLineIsBlank) {
-          handleRequest(client, request);
-          break;
-        }
-
-        if (c == '\n') {
-          currentLineIsBlank = true;
-        } else if (c != '\r') {
-          currentLineIsBlank = false;
-        }
-      }
-    }
-
-    delay(1);
-    client.stop();
-  }
 }
 
 void connectToWiFi() {
@@ -79,6 +61,123 @@ void connectToWiFi() {
 
   Serial.println();
   Serial.println("Connected to WiFi");
+  Serial.print("Arduino local IP: ");
+  Serial.println(WiFi.localIP());
+}
+
+void connectToMQTT() {
+  mqttClient.setId("arduinoNano33IoT_s224520987");
+  mqttClient.onMessage(onMqttMessage);
+
+  Serial.print("Connecting to MQTT broker");
+
+  while (!mqttClient.connect(broker, mqttPort)) {
+    Serial.print(".");
+    delay(3000);
+  }
+
+  Serial.println();
+  Serial.println("Connected to MQTT broker");
+
+  mqttClient.subscribe(commandTopic);
+
+  Serial.print("Subscribed to command topic: ");
+  Serial.println(commandTopic);
+
+  publishStatus();
+}
+
+void checkConnections() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi disconnected. Reconnecting...");
+    connectToWiFi();
+  }
+
+  if (!mqttClient.connected()) {
+    Serial.println("MQTT disconnected. Reconnecting...");
+    connectToMQTT();
+  }
+}
+
+void onMqttMessage(int messageSize) {
+  String payload = "";
+
+  while (mqttClient.available()) {
+    payload += (char)mqttClient.read();
+  }
+
+  Serial.print("MQTT command received: ");
+  Serial.println(payload);
+
+  handleMqttCommand(payload);
+}
+
+String getJsonValue(String json, String key) {
+  String pattern = "\"" + key + "\":";
+  int keyIndex = json.indexOf(pattern);
+
+  if (keyIndex == -1) {
+    return "";
+  }
+
+  int valueStart = keyIndex + pattern.length();
+
+  while (json.charAt(valueStart) == ' ') {
+    valueStart++;
+  }
+
+  if (json.charAt(valueStart) == '"') {
+    valueStart++;
+    int valueEnd = json.indexOf("\"", valueStart);
+    return json.substring(valueStart, valueEnd);
+  } else {
+    int valueEnd = json.indexOf(",", valueStart);
+
+    if (valueEnd == -1) {
+      valueEnd = json.indexOf("}", valueStart);
+    }
+
+    return json.substring(valueStart, valueEnd);
+  }
+}
+
+void handleMqttCommand(String payload) {
+  String room = getJsonValue(payload, "room");
+  String action = getJsonValue(payload, "action");
+  int seconds = getJsonValue(payload, "seconds").toInt();
+
+  room.trim();
+  action.trim();
+
+  Serial.print("Room: ");
+  Serial.println(room);
+
+  Serial.print("Action: ");
+  Serial.println(action);
+
+  Serial.print("Seconds: ");
+  Serial.println(seconds);
+
+  if (room != "livingroom" && room != "bathroom" && room != "closet") {
+    Serial.println("Invalid room received");
+    return;
+  }
+
+  if (action == "toggle") {
+    toggleRoom(room);
+  }
+  else if (action == "timer") {
+    if (seconds > 0) {
+      startTimer(room, seconds);
+    } else {
+      Serial.println("Invalid timer value");
+    }
+  }
+  else {
+    Serial.println("Invalid action received");
+  }
+
+  publishStatus();
 }
 
 void checkTimers() {
@@ -88,59 +187,27 @@ void checkTimers() {
     livingroom = false;
     digitalWrite(LED_LIVING, LOW);
     livingOffAt = 0;
+
+    Serial.println("Living room timer finished");
+    publishStatus();
   }
 
   if (bathOffAt != 0 && now >= bathOffAt) {
     bathroom = false;
     digitalWrite(LED_BATH, LOW);
     bathOffAt = 0;
+
+    Serial.println("Bathroom timer finished");
+    publishStatus();
   }
 
   if (closetOffAt != 0 && now >= closetOffAt) {
     closet = false;
     digitalWrite(LED_CLOSET, LOW);
     closetOffAt = 0;
-  }
-}
 
-void handleRequest(WiFiClient client, String request) {
-  Serial.println("Incoming request:");
-  Serial.println(request);
-
-  if (request.indexOf("GET /toggle?room=livingroom") >= 0) {
-    toggleRoom("livingroom");
-    sendJson(client, "{\"success\":true,\"action\":\"toggle\",\"room\":\"livingroom\"}");
-  }
-  else if (request.indexOf("GET /toggle?room=bathroom") >= 0) {
-    toggleRoom("bathroom");
-    sendJson(client, "{\"success\":true,\"action\":\"toggle\",\"room\":\"bathroom\"}");
-  }
-  else if (request.indexOf("GET /toggle?room=closet") >= 0) {
-    toggleRoom("closet");
-    sendJson(client, "{\"success\":true,\"action\":\"toggle\",\"room\":\"closet\"}");
-  }
-  else if (request.indexOf("GET /timer?") >= 0) {
-    String room = getQueryValue(request, "room");
-    String secondsStr = getQueryValue(request, "seconds");
-    int seconds = secondsStr.toInt();
-
-    if ((room == "livingroom" || room == "bathroom" || room == "closet") && seconds > 0) {
-      startTimer(room, seconds);
-      sendJson(client, "{\"success\":true,\"action\":\"timer\"}");
-    } else {
-      sendJson(client, "{\"success\":false,\"error\":\"invalid timer request\"}");
-    }
-  }
-  else if (request.indexOf("GET /status") >= 0) {
-    String json = "{";
-    json += "\"livingroom\":" + String(livingroom ? "true" : "false") + ",";
-    json += "\"bathroom\":" + String(bathroom ? "true" : "false") + ",";
-    json += "\"closet\":" + String(closet ? "true" : "false");
-    json += "}";
-    sendJson(client, json);
-  }
-  else {
-    sendJson(client, "{\"success\":false,\"message\":\"unknown endpoint\"}");
+    Serial.println("Closet timer finished");
+    publishStatus();
   }
 }
 
@@ -160,6 +227,9 @@ void toggleRoom(String room) {
     digitalWrite(LED_CLOSET, closet ? HIGH : LOW);
     if (!closet) closetOffAt = 0;
   }
+
+  Serial.print(room);
+  Serial.println(" toggled");
 }
 
 void startTimer(String room, int seconds) {
@@ -180,36 +250,25 @@ void startTimer(String room, int seconds) {
     digitalWrite(LED_CLOSET, HIGH);
     closetOffAt = offTime;
   }
+
+  Serial.print("Timer started for ");
+  Serial.print(room);
+  Serial.print(" for ");
+  Serial.print(seconds);
+  Serial.println(" seconds");
 }
 
-String getQueryValue(String request, String key) {
-  int qIndex = request.indexOf("?");
-  if (qIndex == -1) return "";
+void publishStatus() {
+  String json = "{";
+  json += "\"livingroom\":\"" + String(livingroom ? "ON" : "OFF") + "\",";
+  json += "\"bathroom\":\"" + String(bathroom ? "ON" : "OFF") + "\",";
+  json += "\"closet\":\"" + String(closet ? "ON" : "OFF") + "\"";
+  json += "}";
 
-  int endIndex = request.indexOf(" HTTP/");
-  if (endIndex == -1) return "";
+  mqttClient.beginMessage(statusTopic);
+  mqttClient.print(json);
+  mqttClient.endMessage();
 
-  String query = request.substring(qIndex + 1, endIndex);
-
-  String pattern = key + "=";
-  int keyIndex = query.indexOf(pattern);
-  if (keyIndex == -1) return "";
-
-  int valueStart = keyIndex + pattern.length();
-  int ampIndex = query.indexOf("&", valueStart);
-
-  if (ampIndex == -1) {
-    return query.substring(valueStart);
-  } else {
-    return query.substring(valueStart, ampIndex);
-  }
-}
-
-void sendJson(WiFiClient client, String json) {
-  client.println("HTTP/1.1 200 OK");
-  client.println("Content-Type: application/json");
-  client.println("Connection: close");
-  client.println("Access-Control-Allow-Origin: *");
-  client.println();
-  client.println(json);
+  Serial.print("Published status: ");
+  Serial.println(json);
 }
