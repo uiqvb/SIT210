@@ -7,7 +7,7 @@ BLEStringCharacteristic commandChar("19B10001-E8F2-537E-4F6C-D104768A1214", BLEW
 #define HALLWAY_LED  3
 #define FAN_LED      4
 #define LDR_PIN      A0
-#define DARK_THRESHOLD 1020
+#define DARK_THRESHOLD 400
 
 void setup() {
   Serial.begin(9600);
