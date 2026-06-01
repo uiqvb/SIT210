@@ -1,0 +1,323 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Smart Clothesline Robot MQTT Backend API",
+    "version": "2.0.0",
+    "description": "Flask dashboard/backend for Smart Clothesline Robot using MQTT broker as Nano/Pi middleman."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Current backend"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Dashboard"
+    },
+    {
+      "name": "Telemetry"
+    },
+    {
+      "name": "Commands"
+    },
+    {
+      "name": "MQTT"
+    },
+    {
+      "name": "Weather Backup"
+    },
+    {
+      "name": "Logs"
+    },
+    {
+      "name": "Health"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "CommandRequest": {
+        "type": "object",
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "enum": [
+              "MOVE_TO_SAFE",
+              "RETURN_TO_DRYING",
+              "STOP",
+              "SET_ACTIVE_TRUE",
+              "SET_ACTIVE_FALSE",
+              "NONE"
+            ],
+            "example": "MOVE_TO_SAFE"
+          }
+        }
+      },
+      "TelemetryRequest": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "state": {
+            "type": "string",
+            "example": "DRYING"
+          },
+          "target": {
+            "type": "string",
+            "example": "NONE"
+          },
+          "event": {
+            "type": "string",
+            "example": "SUN_BALANCED"
+          },
+          "line_pattern": {
+            "type": "string",
+            "example": "010"
+          },
+          "rain_raw": {
+            "type": "integer",
+            "example": 4020
+          },
+          "rain_status": {
+            "type": "string",
+            "example": "DRY"
+          },
+          "left_lux": {
+            "type": "number",
+            "example": 610.5
+          },
+          "right_lux": {
+            "type": "number",
+            "example": 702.1
+          },
+          "laundry_active": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Dashboard UI",
+        "responses": {
+          "200": {
+            "description": "HTML dashboard"
+          }
+        }
+      }
+    },
+    "/docs": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Swagger UI",
+        "responses": {
+          "200": {
+            "description": "Swagger UI HTML"
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "OpenAPI JSON",
+        "responses": {
+          "200": {
+            "description": "OpenAPI JSON"
+          }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "tags": [
+          "Telemetry"
+        ],
+        "summary": "Latest robot status from MQTT telemetry",
+        "responses": {
+          "200": {
+            "description": "Status payload"
+          }
+        }
+      }
+    },
+    "/api/telemetry": {
+      "post": {
+        "tags": [
+          "Telemetry"
+        ],
+        "summary": "Legacy HTTP telemetry test endpoint",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelemetryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Telemetry accepted"
+          },
+          "400": {
+            "description": "Invalid JSON"
+          }
+        }
+      }
+    },
+    "/api/mqtt": {
+      "get": {
+        "tags": [
+          "MQTT"
+        ],
+        "summary": "MQTT connection and topic status",
+        "responses": {
+          "200": {
+            "description": "MQTT status"
+          }
+        }
+      }
+    },
+    "/api/command": {
+      "post": {
+        "tags": [
+          "Commands"
+        ],
+        "summary": "Publish command to Nano over MQTT",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommandRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Command published"
+          },
+          "400": {
+            "description": "Invalid command or MQTT unavailable"
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Health payload"
+          }
+        }
+      }
+    },
+    "/api/weather": {
+      "get": {
+        "tags": [
+          "Weather Backup"
+        ],
+        "summary": "Cached Melbourne weather",
+        "responses": {
+          "200": {
+            "description": "Weather payload"
+          }
+        }
+      }
+    },
+    "/api/weather/refresh": {
+      "post": {
+        "tags": [
+          "Weather Backup"
+        ],
+        "summary": "Force weather refresh",
+        "responses": {
+          "200": {
+            "description": "Weather refreshed"
+          }
+        }
+      }
+    },
+    "/api/fallback": {
+      "get": {
+        "tags": [
+          "Weather Backup"
+        ],
+        "summary": "Rain-sensor/weather fallback decision",
+        "responses": {
+          "200": {
+            "description": "Fallback decision"
+          }
+        }
+      }
+    },
+    "/api/logs": {
+      "get": {
+        "tags": [
+          "Logs"
+        ],
+        "summary": "Recent telemetry logs",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent logs"
+          }
+        }
+      }
+    },
+    "/api/events": {
+      "get": {
+        "tags": [
+          "Logs"
+        ],
+        "summary": "Recent events",
+        "responses": {
+          "200": {
+            "description": "Recent events"
+          }
+        }
+      }
+    },
+    "/logs.csv": {
+      "get": {
+        "tags": [
+          "Logs"
+        ],
+        "summary": "Download CSV log",
+        "responses": {
+          "200": {
+            "description": "CSV log"
+          }
+        }
+      }
+    }
+  }
+}
